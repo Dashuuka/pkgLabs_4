@@ -208,20 +208,30 @@ function resetPlotPixel() {
 function stepByStep(x1, y1, x2, y2) {
     const start = performance.now();
     resetPlotPixel();
-    const dx = x2 - x1;
-    const dy = y2 - y1;
-    const steps = Math.max(Math.abs(dx), Math.abs(dy));
-    const xIncrement = dx / steps;
-    const yIncrement = dy / steps;
 
-    let x = x1;
-    let y = y1;
+    let positionX = x1;
+    let positionY = y1;
+    const endX = x2;
+    const endY = y2;
+    const stepX = (x2 > x1) ? 1 : -1;
+    const stepY = (y2 > y1) ? 1 : -1;
 
-    for (let i = 0; i <= steps; i++) {
-        plotPixel(Math.round(x), Math.round(y));
-        x += xIncrement;
-        y += yIncrement;
+    while (true) {
+        plotPixel(positionX, positionY);
+
+        if (positionX === endX && positionY === endY) {
+            break;
+        }
+
+        if (positionX !== endX) {
+            positionX += stepX;
+        }
+
+        if (positionY !== endY) {
+            positionY += stepY;
+        }
     }
+
     return performance.now() - start;
 }
 
@@ -229,9 +239,10 @@ function stepByStep(x1, y1, x2, y2) {
 function DDA(x1, y1, x2, y2) {
     const start = performance.now();
     resetPlotPixel();
+
     const dx = x2 - x1;
     const dy = y2 - y1;
-    const steps = Math.abs(dx) > Math.abs(dy) ? Math.abs(dx) : Math.abs(dy);
+    const steps = Math.max(Math.abs(dx), Math.abs(dy));
 
     const xIncrement = dx / steps;
     const yIncrement = dy / steps;
@@ -247,26 +258,97 @@ function DDA(x1, y1, x2, y2) {
     return performance.now() - start;
 }
 
+
 // Алгоритм Брезенхема для линии
-function bresenham(x1, y1, x2, y2) {
+function bresenham(x0, y0, x1, y1) {
     const start = performance.now();
     resetPlotPixel();
+
+    // Преобразуем координаты в целые числа
+    x0 = Math.round(x0);
+    y0 = Math.round(y0);
+    x1 = Math.round(x1);
+    y1 = Math.round(y1);
+
+    const deltax = Math.abs(x1 - x0);
+    const deltay = Math.abs(y1 - y0);
+    let error = 0;
+    const deltaerr = deltay + 1;
+    let x = x0;
+    let y = y0;
+    const diry = (y1 - y0) > 0 ? 1 : (y1 - y0) < 0 ? -1 : 0;
+
+    const dirx = x0 < x1 ? 1 : -1;
+
+    if (deltax >= deltay) {
+        // Основная ось X
+        const deltaerr = (deltay + 1);
+        for (x = x0; x != x1 + dirx; x += dirx) {
+            plotPixel(x, y);
+            error += deltaerr;
+            if (error >= deltax + 1) {
+                y += diry;
+                error -= deltax + 1;
+            }
+        }
+    } else {
+        // Основная ось Y
+        const deltaerr = (deltax + 1);
+        for (y = y0; y != y1 + diry; y += diry) {
+            plotPixel(x, y);
+            error += deltaerr;
+            if (error >= deltay + 1) {
+                x += dirx;
+                error -= deltay + 1;
+            }
+        }
+    }
+
+    return performance.now() - start;
+}
+
+
+function castlePitteway(x1, y1, x2, y2) {
+    const start = performance.now();
+    resetPlotPixel();
+
     let dx = Math.abs(x2 - x1);
     let dy = Math.abs(y2 - y1);
-    let x = x1;
-    let y = y1;
+    const sx = (x2 >= x1) ? 1 : -1;
+    const sy = (y2 >= y1) ? 1 : -1;
 
-    const sx = x1 < x2 ? 1 : -1;
-    const sy = y1 < y2 ? 1 : -1;
-    let err = dx - dy;
+    let x = dx;
+    let y = dy;
 
-    while (true) {
-        plotPixel(x, y);
-        if (x === x2 && y === y2) break;
-        const e2 = 2 * err;
-        if (e2 > -dy) { err -= dy; x += sx; }
-        if (e2 < dx) { err += dx; y += sy; }
+    let sequence = [];
+
+    while (x !== y) {
+        if (x > y) {
+            sequence.push('s');
+            x -= y;
+        } else {
+            sequence.push('d');
+            y -= x;
+        }
     }
+    sequence = sequence.concat(Array(x).fill('sd'));
+
+    let x_curr = x1;
+    let y_curr = y1;
+    plotPixel(x_curr, y_curr);
+
+    for (let i = 0; i < sequence.length; i++) {
+        if (sequence[i] === 's') {
+            x_curr += sx;
+        } else if (sequence[i] === 'd') {
+            y_curr += sy;
+        } else if (sequence[i] === 'sd') {
+            x_curr += sx;
+            y_curr += sy;
+        }
+        plotPixel(x_curr, y_curr);
+    }
+
     return performance.now() - start;
 }
 
@@ -337,7 +419,6 @@ function bresenhamCircle(xc, yc, r) {
     return performance.now() - start;
 }
 
-// Функция для рисования пошагового алгоритма
 function drawStepByStep() {
     const coords = getInputCoordinates();
     drawGrid();
@@ -347,7 +428,6 @@ function drawStepByStep() {
     lastDrawnParams = [coords.x1, coords.y1, coords.x2, coords.y2];
 }
 
-// Функция для рисования алгоритма ЦДА (DDA)
 function drawDDA() {
     const coords = getInputCoordinates();
     drawGrid();
@@ -357,7 +437,6 @@ function drawDDA() {
     lastDrawnParams = [coords.x1, coords.y1, coords.x2, coords.y2];
 }
 
-// Функция для рисования алгоритма Брезенхема (линия)
 function drawBresenham() {
     const coords = getInputCoordinates();
     drawGrid();
@@ -366,8 +445,15 @@ function drawBresenham() {
     lastDrawnFunction = bresenham;
     lastDrawnParams = [coords.x1, coords.y1, coords.x2, coords.y2];
 }
+function drawCastlePitteway() {
+    const coords = getInputCoordinates();
+    drawGrid();
+    const time = castlePitteway(coords.x1, coords.y1, coords.x2, coords.y2);
+    document.getElementById('timing').textContent = `Алгоритм Кастла-Питвея: ${time.toFixed(3)} мс`;
+    lastDrawnFunction = castlePitteway;
+    lastDrawnParams = [coords.x1, coords.y1, coords.x2, coords.y2];
+}
 
-// Функция для рисования алгоритма Брезенхема (окружность)
 function drawBresenhamCircle() {
     const coords = getInputCoordinates();
     drawGrid();
