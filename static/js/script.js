@@ -437,7 +437,7 @@ function drawDDA() {
     lastDrawnParams = [coords.x1, coords.y1, coords.x2, coords.y2];
 }
 
-function drawBresenham() {
+function drawBresenham() {    
     const coords = getInputCoordinates();
     drawGrid();
     const time = bresenham(coords.x1, coords.y1, coords.x2, coords.y2);
